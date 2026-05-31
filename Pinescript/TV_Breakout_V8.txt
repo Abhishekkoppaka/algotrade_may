@@ -1,0 +1,178 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Krish5060
+
+//@version=4
+strategy("Pivot", overlay = true)
+
+strategy.risk.max_intraday_filled_orders(2)
+t =time(timeframe.period, "0900-1430")
+timecond = not na(t)
+timecondend = na(t)
+resettm =time(timeframe.period, "1500-1530")
+isreset = not na(resettm)
+
+frst =time(timeframe.period, "0915-0929")
+isfrst = not na(frst)
+
+
+//Based on Prev Day
+xHigh  = security(syminfo.tickerid,"D", high[1],barmerge.gaps_off, barmerge.lookahead_on)
+xLow   = security(syminfo.tickerid,"D", low[1],barmerge.gaps_off, barmerge.lookahead_on)
+xClose = security(syminfo.tickerid,"D", close[1],barmerge.gaps_off, barmerge.lookahead_on)
+Dayhigh= security(syminfo.tickerid, "D", high[0], barmerge.gaps_off, barmerge.lookahead_off)
+Daylow= security(syminfo.tickerid, "D", low[0], barmerge.gaps_off, barmerge.lookahead_off)
+
+vPP = (xHigh+xLow+xClose) / 3
+vR1 = vPP+(vPP-xLow)
+vS1 = vPP-(xHigh - vPP)
+vR2 = vPP + (xHigh - xLow)
+vS2 = vPP - (xHigh - xLow)
+vR3 = xHigh + 2 * (vPP - xLow)
+vS3 = xLow - 2 * (xHigh - vPP)
+
+plot(Dayhigh, title = "DH", color = color.purple,linewidth=2, style=plot.style_line)
+plot(Daylow, title = "DL",color = color.purple, linewidth=2, style=plot.style_line)
+plot(vPP, title = "PP",color = color.orange,linewidth=1, style=plot.style_line)
+plot(vR1, title = "vR1",color = color.green, linewidth=2, style=plot.style_line)
+plot(vR2, title = "vR2",color = color.green, linewidth=1, style=plot.style_circles)
+plot(vR3, title = "vR3",color = color.green, linewidth=1, style=plot.style_circles)
+plot(vS1, title = "vS1",color = color.red, linewidth=2, style=plot.style_line)
+plot(vS2, title = "vS2",color = color.red, linewidth=1, style=plot.style_circles)
+plot(vS3, title = "vS3",color = color.red, linewidth=1, style=plot.style_circles)
+plot(xHigh, title = "PDH",color = color.black, linewidth=2, style=plot.style_line)
+plot(xLow, title = "PDL",color = color.black, linewidth=2, style=plot.style_line)
+
+// Based on Prev prev Day
+x2High  = security(syminfo.tickerid,"D", high[2],barmerge.gaps_off, barmerge.lookahead_on)
+x2Low   = security(syminfo.tickerid,"D", low[2],barmerge.gaps_off, barmerge.lookahead_on)
+x2Close = security(syminfo.tickerid,"D", close[2],barmerge.gaps_off, barmerge.lookahead_on)
+
+vPP2 = (x2High+x2Low+x2Close) / 3
+plot(vPP2, title = "PP2",color = color.orange,linewidth=1, style=plot.style_circles)
+
+/////Extract
+inputMax = input(15, title= "ORB total time (minutes)")
+sess = input("0915-0930", type=input.session, title="Session Time")
+t15min = time(timeframe.period, sess + ":1234567")
+hide = timeframe.isintraday and timeframe.multiplier <= inputMax
+
+is_newbar(res) => change(time(res)) != 0
+in_session = not na(t15min)
+is_first = in_session and not in_session[1]
+
+orb_high = float(na)
+orb_low = float(na)
+
+if is_first
+    orb_high := high
+    orb_low := low
+else
+    orb_high := orb_high[1]
+    orb_low := orb_low[1]
+if high > orb_high and in_session
+    orb_high := high
+if low < orb_low and in_session
+    orb_low := low
+
+plot(hide ? orb_high : na , style=plot.style_line, color=orb_high[1] != orb_high ? na : color.green, title="ORB High", linewidth=2 , display =display.none)
+plot(hide ? orb_low : na , style=plot.style_line, color=orb_low[1] != orb_low ? na : color.red, title="ORB Low", linewidth=2 , display =display.none)
+
+buy_val = float(na)
+sell_val = float(na)
+buy_val := na(buy_val[1]) ? na : buy_val[1]
+sell_val := na(sell_val[1]) ? na : sell_val[1]
+
+i = 1
+i := i+1
+
+ent_hr = 0.0
+ent_hr := na(ent_hr[1]) ? na : ent_hr[1]
+ent_min = 0.0
+ent_min := na(ent_min[1]) ? na : ent_min[1]
+isValid = 0
+isValid := na(isValid[1]) ? na : isValid[1]
+
+ent_low = low
+//ent_low := lowest(low,i)
+ent_low := na(ent_low[1]) or ent_low[1]>ent_low ? ent_low : ent_low[1]
+
+
+ent_high = high
+//ent_low := lowest(low,i)
+ent_high := na(ent_high[1]) or ent_high[1]<ent_high ? ent_high : ent_high[1]
+
+
+
+if ((orb_high <= vR2) and timecond and vPP > vPP2  and close > vR1 and close > xHigh and (isValid==0))
+    //buy_val := ent_high
+    buy_val := ent_high+((ent_high*0.02)/100)
+    ent_hr := hour
+    ent_min := minute
+    isValid := 1
+
+if ((orb_low >= vS2) and timecond and vPP < vPP2 and close < vS1 and close < xLow and (isValid==0))
+    sell_val := ent_low-((ent_low*0.02)/100)
+    ent_hr := hour
+    ent_min := minute
+    isValid := 1
+    
+if(timecondend)
+    isValid := 0
+
+    
+var buy_tm = (ent_hr*100+ent_min)
+var cur_tm = (ent_hr*100+ent_min)
+var tks = syminfo.mintick
+var bbuy_val = float(na)
+bbuy_val := (vR2-buy_val)*20
+var ssell_val = float(na)
+ssell_val := (sell_val-vS2)*20
+
+buy_sl = 0.0
+buy_sl := na(buy_sl[1]) ? buy_sl : buy_sl[1]
+sell_sl = 0.0
+sell_sl := na(sell_sl[1]) ? sell_sl : sell_sl[1]
+
+buy_sl := (vR1>xHigh?vR1:xHigh)
+buy_sl := (vPP+buy_sl)/2
+sell_sl := (vS1<xLow?vS1:xLow)
+sell_sl := (vPP+sell_sl)/2
+
+plot(buy_val, style=plot.style_line, color=color.gray, title="DH_High", linewidth=4)
+plot(sell_val, style=plot.style_line, color=color.gray, title="DL_Sell", linewidth=4)
+//plot(ent_low, style=plot.style_line, color=color.gray, title="DL_Low", linewidth=4)
+//plot(600+(isValid*10), style=plot.style_line, color=color.gray, title="ENT_Sell", linewidth=4)
+//plot(bbuy_val, style=plot.style_line, color=color.maroon, title="BBuy_High", linewidth=4)
+
+strategy.entry("Buy",strategy.long, stop=buy_val ,when = (isValid == 1) and strategy.position_size == 0 and close > vR1 and close > xHigh and buy_val < vR2 and timecond)
+
+strategy.close("Buy", when =(low < (buy_sl) or timecondend))
+
+strategy.exit("Ex_Buy","Buy", profit=bbuy_val, when=(isValid == 1) or timecondend)
+
+strategy.entry("Sell",strategy.short,stop=sell_val,when = (isValid == 1) and strategy.position_size == 0 and close < vS1 and close < xLow and sell_val > vS2 and timecond)
+
+strategy.close("Sell", when =(high > (sell_sl) or timecondend))
+
+strategy.exit("Ex_Sell","Sell", profit=ssell_val, when=(isValid == 1) or timecondend)
+
+if(timecondend)
+    strategy.close("Buy") 
+    strategy.close("Sell") 
+    strategy.cancel("Buy") 
+    strategy.cancel("Sell")
+
+if isreset
+    buy_val := float(na)
+    sell_val := float(na)
+    bbuy_val := float(na)
+    ssell_val := float(na)
+    isValid := 0
+    i :=1
+    ent_low :=low
+    ent_high := high
+
+if(isfrst)
+    buy_sl := 0.0
+    sell_sl := 0.0
+    

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /e/claude/Trading_Claude_revamp/config)",
+      "Bash(mkdir -p /e/claude/Trading_Claude_revamp/core)",
+      "Bash(mkdir -p /e/claude/Trading_Claude_revamp/strategies)",
+      "Bash(mkdir -p /e/claude/Trading_Claude_revamp/backtesting)",
+      "Bash(mkdir -p /e/claude/Trading_Claude_revamp/live)",
+      "Bash(python *)"
+    ]
+  }
+}
